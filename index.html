@@ -3,195 +3,300 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Trend Mirror (Auto-Fetch UX)</title>
+    <title>게임 사업부 커뮤니티 동향 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f5f7; }
-        .list-row { transition: background-color 0.15s ease; }
-        .list-row:hover { background-color: #f8fafc; }
-        /* 로딩 스피너 애니메이션 */
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* AAGAG 스타일의 밀도 높은 리스트 디자인을 위한 커스텀 CSS */
+        .list-item { transition: background-color 0.2s; }
+        .list-item:hover { background-color: #f3f4f6; }
+        .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
-<body class="text-gray-800 min-h-screen flex flex-col" onload="fetchDataAutomatically()">
+<body class="bg-slate-100 font-sans text-slate-800">
 
-    <header class="bg-white border-b sticky top-0 z-20 shadow-sm">
-        <div class="max-w-5xl mx-auto px-2 sm:px-4 h-14 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <h1 class="text-xl font-extrabold text-blue-600 tracking-tight cursor-pointer" onclick="filterData('all')">
-                    GAMER<span class="text-gray-800">GAG</span>
-                </h1>
-                <nav class="hidden sm:flex gap-1 ml-4" id="navTabs">
-                    <button onclick="filterData('all')" class="nav-tab px-3 py-1.5 text-sm font-bold text-blue-600 border-b-2 border-blue-600">전체보기</button>
-                    <button onclick="filterData('공식 뉴스')" class="nav-tab px-3 py-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 border-b-2 border-transparent">공식 뉴스</button>
-                    <button onclick="filterData('유저 공략')" class="nav-tab px-3 py-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 border-b-2 border-transparent">유저 공략</button>
-                </nav>
-            </div>
-            
-            <div class="flex items-center gap-3">
-                <div id="syncStatus" class="flex items-center gap-2 text-xs text-gray-500 font-semibold">
-                    <div class="loader" id="spinner" style="display: none;"></div>
-                    <span id="syncText">대기 중</span>
+<div class="max-w-7xl mx-auto p-4 flex flex-col gap-6">
+    
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h1 class="text-2xl font-bold mb-4 text-slate-900">📊 커뮤니티 여론 동향 분석기</h1>
+        <p class="text-sm text-slate-500 mb-2">CSV 데이터를 아래에 붙여넣거나 기본 데이터를 수정하여 [분석 실행]을 클릭하세요. (형식: 제목,커뮤니티,조회수,댓글수,좋아요,감성)</p>
+        <textarea id="csvInput" class="w-full h-32 p-3 border border-slate-300 rounded-lg text-sm bg-slate-50 font-mono focus:outline-blue-500">
+제목,커뮤니티,조회수,댓글수,좋아요,감성
+"이번 패치 밸런스 실화냐? 진짜 접는다",공식카페,2500,120,45,부정
+"신규 아바타 디자인 미쳤음 ㄷㄷ",인벤,5400,80,320,긍정
+"접속 불량 저만 그런가요? 보상해라",디시인사이드,800,50,2,부정
+"무과금 1달차 뉴비 후기 및 팁",공식카페,1200,20,50,긍정
+"길드원 모집합니다 (매너필수)",인벤,300,5,1,중립
+"핵 유저 제보합니다. 운영자 일 안하나요",디시인사이드,3500,210,150,부정
+"뉴비 질문있습니다 ㅠㅠ",공식카페,150,3,0,중립
+"오늘자 역대급 길드전 하이라이트.mp4",인벤,8500,150,400,긍정
+"확률 조작 아니냐? 천장 쳤는데 안나옴",디시인사이드,4200,300,120,부정
+"이번 이벤트 혜자네요 감사합니다",공식카페,3100,45,210,긍정</textarea>
+        <div class="mt-4 flex justify-between items-center">
+            <button onclick="processData()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow transition">
+                🚀 데이터 분석 실행
+            </button>
+            <button onclick="exportToNotion()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-6 rounded-lg shadow transition flex items-center gap-2">
+                <span>📝 Copy for Notion</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
+            <h3 class="text-lg font-semibold text-slate-700 mb-2">전체 요약</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-50 p-3 rounded-lg text-center">
+                    <p class="text-xs text-slate-500">수집된 게시물</p>
+                    <p id="totalPosts" class="text-2xl font-bold text-slate-800">0</p>
                 </div>
-                <button onclick="fetchDataAutomatically()" class="text-gray-500 hover:text-blue-600 transition" title="수동 새로고침">
-                    <i class="fa-solid fa-rotate-right text-lg"></i>
-                </button>
-                <button onclick="exportToNotion()" class="hidden sm:flex items-center gap-1 text-xs bg-gray-800 text-white px-3 py-1.5 rounded hover:bg-gray-700 transition" id="notionBtn">
-                    <i class="fa-brands fa-markdown"></i> 노션 복사
-                </button>
+                <div class="bg-red-50 p-3 rounded-lg text-center border border-red-100">
+                    <p class="text-xs text-red-500">부정적 이슈</p>
+                    <p id="negativePosts" class="text-2xl font-bold text-red-600">0</p>
+                </div>
             </div>
+            <p class="text-xs text-slate-400 mt-4">* 화제성 지수 = (조회수*0.01) + (댓글*2) + (좋아요*5)<br>* 위험도 지수 = 부정 게시물 화제성 지수 * 1.5</p>
         </div>
-    </header>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-64 flex justify-center items-center">
+            <canvas id="sentimentChart"></canvas>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-64 flex justify-center items-center">
+            <canvas id="communityChart"></canvas>
+        </div>
+    </div>
 
-    <main class="max-w-5xl mx-auto w-full px-2 sm:px-4 py-4 flex-grow">
-        <div class="bg-white border rounded-sm shadow-sm overflow-hidden">
-            <div class="hidden md:flex bg-gray-50 border-b text-xs font-semibold text-gray-500 py-2 px-3">
-                <div class="w-12 text-center">순위</div>
-                <div class="w-20 text-center">출처</div>
-                <div class="flex-grow pl-2">제목</div>
-                <div class="w-24 text-center">작성자</div>
-                <div class="w-16 text-center">조회수</div>
-                <div class="w-16 text-center">인기점수</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-96">
+            <div class="bg-red-600 text-white px-4 py-2 font-bold flex justify-between items-center text-sm">
+                <span>🚨 긴급 대응 요망 (위험도순)</span>
+                <span class="text-xs bg-red-800 px-2 py-0.5 rounded">Risk Score</span>
             </div>
-
-            <ul id="postList" class="divide-y divide-gray-100 text-sm">
-                </ul>
+            <div id="urgentList" class="overflow-y-auto flex-1 p-2">
+                </div>
         </div>
-    </main>
 
-    <script>
-        let globalData = [];
-        let currentFilter = 'all';
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-96">
+            <div class="bg-blue-600 text-white px-4 py-2 font-bold flex justify-between items-center text-sm">
+                <span>🔥 전체 핫 트렌드 (화제성순)</span>
+                <span class="text-xs bg-blue-800 px-2 py-0.5 rounded">Trend Score</span>
+            </div>
+            <div id="hotList" class="overflow-y-auto flex-1 p-2">
+                 </div>
+        </div>
 
-        // 🚨 실무 연동 포인트: 향후 파이썬 크롤러 API가 완성되면 아래 데이터를 API 호출(fetch) 로직으로 교체합니다.
-        const mockServerData = [
-            { community: '인벤', title: '[단독] 신작 MMORPG 프로젝트 N, 개발 전면 취소 확정', author: '김인벤기자', views: 45000, likes: 320, link: '#' },
-            { community: 'MTN뉴스', title: '넥슨, 글로벌 시장 정조준... 차기작 라인업 공개', author: '서정근', views: 12000, likes: 85, link: '#' },
-            { community: '디시인사이드', title: '이번 패치로 떡상한 무기 티어 정리해준다.txt', author: '망령빌런', views: 32000, likes: 540, link: '#' },
-            { community: '루리웹', title: '몬스터 헌터 와일즈 PC 사양 공개, 이거 돌아갈까요?', author: '훈타조아', views: 18000, likes: 110, link: '#' },
-            { community: '디스이즈게임', title: '스팀 동접자 100만 돌파, K-게임의 반란', author: '이디겜', views: 9500, likes: 45, link: '#' },
-            { community: '게임메카', title: '확률형 아이템 정보공개 의무화, 업계 반응은?', author: '박메카', views: 21000, likes: 190, link: '#' },
-            { community: '인벤', title: '무과금 뉴비를 위한 초반 지역 100% 진행 가이드', author: '고인물', views: 28000, likes: 420, link: '#' },
-            { community: '디시인사이드', title: '솔직히 이번 이벤트 보상 너무 창렬 아니냐?', author: '징징이', views: 4500, likes: 25, link: '#' },
-            { community: 'ZDNet', title: 'MS, 액티비전 블리자드 인수 후 첫 대규모 구조조정', author: '최지넷', views: 15000, likes: 70, link: '#' }
-        ];
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-96">
+            <div class="bg-emerald-600 text-white px-4 py-2 font-bold flex justify-between items-center text-sm">
+                <span>✨ 긍정 바이럴 포인트 (호평순)</span>
+                <span class="text-xs bg-emerald-800 px-2 py-0.5 rounded">Likes/Views</span>
+            </div>
+            <div id="positiveList" class="overflow-y-auto flex-1 p-2">
+                 </div>
+        </div>
 
-        // 페이지 로드 시 자동으로 실행되는 동기화 함수
-        function fetchDataAutomatically() {
-            const listContainer = document.getElementById('postList');
-            const spinner = document.getElementById('spinner');
-            const syncText = document.getElementById('syncText');
+    </div>
+</div>
+
+<script>
+    let globalParsedData = [];
+    let sentimentChartInstance = null;
+    let communityChartInstance = null;
+
+    // CSV 파싱 함수 (간단한 정규식 활용)
+    function parseCSV(csvText) {
+        const lines = csvText.trim().split('\n');
+        const result = [];
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        for (let i = 1; i < lines.length; i++) {
+            // 따옴표 안의 쉼표를 무시하기 위한 파싱 로직
+            const regex = /(?:,"|^")(""|[\w\W]*?)(?=",|"$)|(?:,(?!")|^(?!"))([^,]*?)/g;
+            let match;
+            const row = [];
+            while (match = regex.exec(lines[i])) {
+                let val = match[1] !== undefined ? match[1].replace(/""/g, '"') : match[2];
+                row.push(val ? val.trim() : '');
+            }
+            if(row.length < 6) continue;
+
+            // 가중치 계산 로직
+            const views = parseInt(row[2]) || 0;
+            const comments = parseInt(row[3]) || 0;
+            const likes = parseInt(row[4]) || 0;
+            const sentiment = row[5];
             
-            // UI 초기화 및 로딩 시작
-            listContainer.innerHTML = '';
-            spinner.style.display = 'block';
-            syncText.innerText = '실시간 데이터 수집 중...';
-            document.getElementById('notionBtn').style.display = 'none';
+            // 🔥 화제성 지수
+            const trendScore = (views * 0.01) + (comments * 2) + (likes * 5);
+            // 🚨 위험도 지수
+            const riskScore = (sentiment === '부정' || sentiment === 'Negative') ? trendScore * 1.5 : trendScore;
 
-            // 서버 통신(크롤링)을 흉내내는 1.5초 타이머 (UX 목적)
-            setTimeout(() => {
-                processServerData(mockServerData);
-                
-                spinner.style.display = 'none';
-                
-                // 현재 시간을 동기화 완료 시간으로 표시
-                const now = new Date();
-                const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-                syncText.innerHTML = `<span class="text-blue-500"><i class="fa-solid fa-check"></i> 동기화 완료 (${timeString})</span>`;
-                
-                document.getElementById('notionBtn').style.display = 'flex';
-            }, 1500);
-        }
-
-        function processServerData(dataArray) {
-            const parsedData = [];
-
-            dataArray.forEach(item => {
-                let category = '자유 잡담';
-                const newsKeywords = ['발표', '출시', '업데이트', '패치', '기자', '인터뷰', '단독', '리뷰', '공개'];
-                const guideKeywords = ['공략', '팁', '가이드', '추천', '세팅', '티어', '모음', '정리'];
-                const newsComms = ['디스이즈게임', 'MTN뉴스', '게임메카', '딜사이트', 'ZDNet'];
-
-                // 카테고리 자동 분류 로직
-                if(newsComms.some(c => item.community.toLowerCase().includes(c.toLowerCase())) || newsKeywords.some(k => item.title.includes(k))) {
-                    category = '공식 뉴스';
-                } else if (guideKeywords.some(k => item.title.includes(k))) {
-                    category = '유저 공략';
-                }
-
-                // 가중치 10배 고정 적용
-                const score = item.views + (item.likes * 10);
-                parsedData.push({ ...item, category, score });
-            });
-
-            // 점수 내림차순 정렬
-            globalData = parsedData.sort((a, b) => b.score - a.score);
-            renderTable();
-        }
-
-        function filterData(category) {
-            currentFilter = category;
-            const tabs = document.querySelectorAll('.nav-tab');
-            tabs.forEach(tab => {
-                if(tab.innerText === category || (category === 'all' && tab.innerText === '전체보기')) {
-                    tab.className = "nav-tab px-3 py-1.5 text-sm font-bold text-blue-600 border-b-2 border-blue-600";
-                } else {
-                    tab.className = "nav-tab px-3 py-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 border-b-2 border-transparent";
-                }
-            });
-            renderTable();
-        }
-
-        function renderTable() {
-            const listContainer = document.getElementById('postList');
-            listContainer.innerHTML = '';
-            const filteredData = globalData.filter(d => currentFilter === 'all' || d.category === currentFilter);
-
-            filteredData.forEach((item, index) => {
-                let commColor = 'text-gray-500';
-                if(item.community.includes('루리웹')) commColor = 'text-blue-500';
-                if(item.community.includes('인벤')) commColor = 'text-green-600';
-                if(item.community.includes('디시')) commColor = 'text-blue-800';
-
-                const li = document.createElement('li');
-                li.className = "list-row flex items-center py-2.5 px-2 md:px-3 cursor-pointer";
-                li.onclick = () => window.open(item.link, '_blank');
-                
-                li.innerHTML = `
-                    <div class="hidden md:block w-12 text-center text-xs font-bold text-gray-300 italic">${index + 1}</div>
-                    <div class="w-16 md:w-20 text-center flex-shrink-0">
-                        <span class="text-[11px] font-bold ${commColor} tracking-tighter">${item.community}</span>
-                    </div>
-                    <div class="flex-grow pl-1 md:pl-2 min-w-0 pr-2">
-                        <div class="text-[14px] font-medium text-gray-900 truncate tracking-tight hover:underline">
-                            ${item.title}
-                            <span class="text-[11px] text-red-500 ml-1 font-bold">[${item.likes}]</span>
-                        </div>
-                        <div class="md:hidden flex text-[10px] text-gray-400 mt-0.5 gap-2">
-                            <span>${item.author}</span>
-                            <span>조회 ${(item.views / 1000).toFixed(1)}k</span>
-                        </div>
-                    </div>
-                    <div class="hidden md:block w-24 text-center text-xs text-gray-500 truncate px-1">${item.author}</div>
-                    <div class="hidden md:block w-16 text-center text-xs text-gray-400">${item.views > 9999 ? (item.views/10000).toFixed(1)+'만' : item.views}</div>
-                    <div class="w-14 md:w-16 text-right md:text-center flex-shrink-0">
-                        <span class="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">${item.score > 9999 ? (item.score/10000).toFixed(1)+'만' : item.score}</span>
-                    </div>
-                `;
-                listContainer.appendChild(li);
+            result.push({
+                title: row[0],
+                community: row[1],
+                views: views,
+                comments: comments,
+                likes: likes,
+                sentiment: sentiment,
+                trendScore: Math.round(trendScore),
+                riskScore: Math.round(riskScore)
             });
         }
+        return result;
+    }
 
-        function exportToNotion() {
-            if(globalData.length === 0) return alert("데이터가 없습니다.");
-            let markdown = `# 🎮 GAMERGAG 트렌드 리포트\n\n| 순위 | 카테고리 | 커뮤니티 | 제목 | 작성자 | Score | 링크 |\n|:---:|:---:|:---:|:---|:---:|:---:|:---|\n`;
-            globalData.slice(0, 10).forEach((item, index) => {
-                markdown += `| ${index + 1} | ${item.category} | ${item.community} | ${item.title} | ${item.author} | **${item.score.toLocaleString()}** | [이동](${item.link}) |\n`;
-            });
-            navigator.clipboard.writeText(markdown).then(() => alert("✅ 노션용 마크다운이 복사되었습니다."));
+    // 데이터 처리 및 UI 업데이트 메인 함수
+    function processData() {
+        const csvData = document.getElementById('csvInput').value;
+        globalParsedData = parseCSV(csvData);
+        
+        updateSummary();
+        renderCharts();
+        renderLists();
+    }
+
+    function updateSummary() {
+        document.getElementById('totalPosts').innerText = globalParsedData.length;
+        const negativeCount = globalParsedData.filter(d => d.sentiment === '부정').length;
+        document.getElementById('negativePosts').innerText = negativeCount;
+    }
+
+    function renderCharts() {
+        // 데이터 집계
+        const sentimentCounts = { '긍정': 0, '부정': 0, '중립': 0 };
+        const communityCounts = {};
+
+        globalParsedData.forEach(d => {
+            if(sentimentCounts[d.sentiment] !== undefined) sentimentCounts[d.sentiment]++;
+            communityCounts[d.community] = (communityCounts[d.community] || 0) + 1;
+        });
+
+        // 감성 차트 그리기
+        const ctx1 = document.getElementById('sentimentChart').getContext('2d');
+        if(sentimentChartInstance) sentimentChartInstance.destroy();
+        sentimentChartInstance = new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(sentimentCounts),
+                datasets: [{
+                    data: Object.values(sentimentCounts),
+                    backgroundColor: ['#10b981', '#ef4444', '#94a3b8']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: {display: true, text: '감성 분포'} } }
+        });
+
+        // 커뮤니티 차트 그리기
+        const ctx2 = document.getElementById('communityChart').getContext('2d');
+        if(communityChartInstance) communityChartInstance.destroy();
+        communityChartInstance = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(communityCounts),
+                datasets: [{
+                    label: '게시물 수',
+                    data: Object.values(communityCounts),
+                    backgroundColor: '#3b82f6'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: {display: true, text: '커뮤니티별 발화량'} } }
+        });
+    }
+
+    function renderLists() {
+        // 1. 긴급 대응 리스트 (부정적 데이터만 필터링 후 위험도 지수 내림차순)
+        const urgentData = globalParsedData.filter(d => d.sentiment === '부정').sort((a, b) => b.riskScore - a.riskScore);
+        const urgentHTML = urgentData.map((d, index) => `
+            <div class="list-item p-2 border-b border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="text-xs font-bold text-slate-400 w-4 text-center">${index + 1}</span>
+                    <span class="text-xs px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded whitespace-nowrap">${d.community}</span>
+                    <p class="text-sm text-slate-800 text-truncate" title="${d.title}">${d.title}</p>
+                </div>
+                <div class="text-xs font-mono font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">${d.riskScore}</div>
+            </div>
+        `).join('');
+        document.getElementById('urgentList').innerHTML = urgentHTML || '<p class="text-sm text-slate-400 p-2 text-center">부정적 이슈가 없습니다.</p>';
+
+        // 2. 핫 트렌드 리스트 (화제성 지수 내림차순)
+        const hotData = [...globalParsedData].sort((a, b) => b.trendScore - a.trendScore);
+        const hotHTML = hotData.map((d, index) => `
+            <div class="list-item p-2 border-b border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="text-xs font-bold text-slate-400 w-4 text-center">${index + 1}</span>
+                    <span class="text-xs px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded whitespace-nowrap">${d.community}</span>
+                    <p class="text-sm ${d.sentiment === '부정' ? 'text-red-600' : 'text-slate-800'} text-truncate" title="${d.title}">${d.title}</p>
+                </div>
+                <div class="text-xs flex gap-2 text-slate-400">
+                    <span>👁️ ${d.views}</span>
+                    <span class="text-blue-500 font-bold">🎯 ${d.trendScore}</span>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('hotList').innerHTML = hotHTML;
+
+        // 3. 긍정 바이럴 리스트 (긍정적 데이터만 필터링 후 좋아요 내림차순)
+        const positiveData = globalParsedData.filter(d => d.sentiment === '긍정').sort((a, b) => b.likes - a.likes);
+        const positiveHTML = positiveData.map((d, index) => `
+            <div class="list-item p-2 border-b border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="text-xs font-bold text-slate-400 w-4 text-center">${index + 1}</span>
+                    <span class="text-xs px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded whitespace-nowrap">${d.community}</span>
+                    <p class="text-sm text-emerald-700 font-medium text-truncate" title="${d.title}">${d.title}</p>
+                </div>
+                <div class="text-xs flex gap-2 text-slate-500">
+                    <span>💬 ${d.comments}</span>
+                    <span class="text-emerald-500 font-bold">👍 ${d.likes}</span>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('positiveList').innerHTML = positiveHTML || '<p class="text-sm text-slate-400 p-2 text-center">긍정적 이슈가 없습니다.</p>';
+    }
+
+    // Notion Export (Markdown 생성)
+    function exportToNotion() {
+        if(globalParsedData.length === 0) {
+            alert("먼저 [데이터 분석 실행] 버튼을 눌러주세요.");
+            return;
         }
-    </script>
+
+        const dateStr = new Date().toLocaleDateString();
+        let markdown = `# 📊 게임 커뮤니티 일간 동향 리포트 (${dateStr})\n\n`;
+        
+        markdown += `## 1. 종합 요약\n`;
+        markdown += `- **총 수집된 게시물:** ${globalParsedData.length}건\n`;
+        markdown += `- **부정적 이슈 건수:** ${globalParsedData.filter(d => d.sentiment === '부정').length}건\n\n`;
+
+        markdown += `## 2. 🚨 긴급 대응 요망 Top 3 (부정 이슈)\n`;
+        markdown += `| 순위 | 출처 | 제목 | 조회수 | 화제성/위험도 |\n`;
+        markdown += `|---|---|---|---|---|\n`;
+        const urgentData = globalParsedData.filter(d => d.sentiment === '부정').sort((a, b) => b.riskScore - a.riskScore).slice(0, 3);
+        urgentData.forEach((d, i) => {
+            markdown += `| ${i+1} | ${d.community} | ${d.title} | ${d.views} | 🎯${d.trendScore} / 🚨**${d.riskScore}** |\n`;
+        });
+
+        markdown += `\n## 3. 🔥 전체 핫 트렌드 Top 5\n`;
+        markdown += `| 순위 | 감성 | 출처 | 제목 | 조회수 | 댓글 | 좋아요 |\n`;
+        markdown += `|---|---|---|---|---|---|---|\n`;
+        const hotData = [...globalParsedData].sort((a, b) => b.trendScore - a.trendScore).slice(0, 5);
+        hotData.forEach((d, i) => {
+            const sentimentEmoji = d.sentiment === '부정' ? '🔴' : (d.sentiment === '긍정' ? '🟢' : '⚪');
+            markdown += `| ${i+1} | ${sentimentEmoji} | ${d.community} | ${d.title} | ${d.views} | ${d.comments} | ${d.likes} |\n`;
+        });
+
+        // 클립보드 복사
+        navigator.clipboard.writeText(markdown).then(() => {
+            alert("✅ 노션용 마크다운 텍스트가 클립보드에 복사되었습니다!\n노션 페이지에 붙여넣기(Ctrl+V) 하세요.");
+        }).catch(err => {
+            console.error('Copy failed', err);
+            alert("복사에 실패했습니다. 브라우저 권한을 확인해주세요.");
+        });
+    }
+
+    // 초기 실행
+    window.onload = processData;
+</script>
+
 </body>
 </html>
